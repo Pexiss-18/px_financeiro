@@ -22,6 +22,18 @@ export function monthKey(year, month) {
   return `${year}-${String(month).padStart(2, '0')}`
 }
 
+export function nextMonthKey(key) {
+  const [y, m] = key.split('-').map(Number)
+  return m === 12 ? monthKey(y + 1, 1) : monthKey(y, m + 1)
+}
+
+// Retorna 'YYYY-MM-DD' para o mês da chave, com o dia limitado ao último dia do mês
+export function dateForMonthKey(key, day) {
+  const [y, m] = key.split('-').map(Number)
+  const lastDay = new Date(y, m, 0).getDate()
+  return `${key}-${String(Math.min(day, lastDay)).padStart(2, '0')}`
+}
+
 const SHORT_MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 export function shortMonthLabel(year, month) {

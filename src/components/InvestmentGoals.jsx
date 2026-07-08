@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { PlusCircle, Save, Sparkles, Target, X } from 'lucide-react'
 import RowActions from './RowActions'
 import FieldError from './FieldError'
+import { formatDateBR } from '../utils/date'
 import { formatCurrency } from '../utils/format'
 import { getAmountError, getNameError } from '../utils/validation'
 
@@ -16,13 +17,23 @@ function emptyForm() {
 }
 
 export default function InvestmentGoals({ finance }) {
-  const { goals, totalInvested, totalInvestTarget, addGoal, editGoal, deleteGoal, addContribution } = finance
+  const {
+    goals,
+    totalInvested,
+    totalInvestTarget,
+    addGoal,
+    editGoal,
+    deleteGoal,
+    addContribution,
+    deleteContribution,
+  } = finance
   const [form, setForm] = useState(emptyForm())
   const [errors, setErrors] = useState({})
   const [editingId, setEditingId] = useState(null)
   const [confirmingId, setConfirmingId] = useState(null)
   const [contributions, setContributions] = useState({})
   const [contributionErrors, setContributionErrors] = useState({})
+  const [expandedId, setExpandedId] = useState(null)
 
   function updateField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -208,6 +219,48 @@ export default function InvestmentGoals({ finance }) {
                     Aportar
                   </button>
                 </div>
+                {(goal.history ?? []).length > 0 && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(expandedId === goal.id ? null : goal.id)}
+                      aria-expanded={expandedId === goal.id}
+                      className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-invest transition-colors"
+                    >
+                      {expandedId === goal.id ? 'Ocultar aportes' : `Ver aportes (${goal.history.length})`}
+                    </button>
+                    {expandedId === goal.id && (
+                      <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        {goal.history
+                          .slice()
+                          .reverse()
+                          .map((entry) => (
+                            <div
+                              key={entry.id}
+                              className="flex items-center justify-between p-2 rounded-lg bg-white/40 dark:bg-white/5"
+                            >
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                {formatDateBR(entry.date)}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-invest">
+                                  +{formatCurrency(entry.amount)}
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label="Excluir aporte"
+                                  onClick={() => deleteContribution(goal.id, entry.id)}
+                                  className="w-6 h-6 rounded-md text-slate-400 hover:text-expense hover:bg-expense/10 flex items-center justify-center transition-colors"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}

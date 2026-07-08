@@ -1,6 +1,18 @@
 import { useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Bell, Database, Download, Moon, RotateCcw, Sparkles, Sun, Upload } from 'lucide-react'
+import {
+  AlertTriangle,
+  Bell,
+  Database,
+  Download,
+  FileSpreadsheet,
+  Moon,
+  RotateCcw,
+  Sparkles,
+  Sun,
+  Upload,
+} from 'lucide-react'
 import MonthSelector from './MonthSelector'
+import { buildTransactionsCsv } from '../utils/csv'
 
 function IconButton({ label, onClick, children, badge = false }) {
   return (
@@ -38,6 +50,8 @@ export default function TopBar({ title, darkMode, setDarkMode, finance }) {
     goToNextMonth,
     budgetUsedPct,
     goals,
+    incomes,
+    expenses,
     storageError,
     exportData,
     importData,
@@ -66,15 +80,33 @@ export default function TopBar({ title, darkMode, setDarkMode, finance }) {
     return list
   }, [budgetUsedPct, goals, storageError])
 
-  function handleExport() {
-    const blob = new Blob([JSON.stringify(exportData(), null, 2)], { type: 'application/json' })
+  function downloadFile(content, mimeType, filename) {
+    const blob = new Blob([content], { type: mimeType })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `px-financeiro-backup-${new Date().toISOString().slice(0, 10)}.json`
+    link.download = filename
     link.click()
     URL.revokeObjectURL(url)
     setOpenMenu(null)
+  }
+
+  function handleExport() {
+    const today = new Date().toISOString().slice(0, 10)
+    downloadFile(
+      JSON.stringify(exportData(), null, 2),
+      'application/json',
+      `px-financeiro-backup-${today}.json`
+    )
+  }
+
+  function handleExportCsv() {
+    const today = new Date().toISOString().slice(0, 10)
+    downloadFile(
+      buildTransactionsCsv(incomes, expenses),
+      'text/csv;charset=utf-8',
+      `px-financeiro-transacoes-${today}.csv`
+    )
   }
 
   function handleImportFile(e) {
@@ -167,6 +199,13 @@ export default function TopBar({ title, darkMode, setDarkMode, finance }) {
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-white/50 dark:hover:bg-white/10 transition-colors"
               >
                 <Download className="w-4 h-4" /> Exportar dados (JSON)
+              </button>
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-white/50 dark:hover:bg-white/10 transition-colors"
+              >
+                <FileSpreadsheet className="w-4 h-4" /> Exportar transações (CSV)
               </button>
               <button
                 type="button"

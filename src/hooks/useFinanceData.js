@@ -6,11 +6,19 @@ import {
   initialGoals,
   initialIncomes,
 } from '../data/mockData'
-import { isOnOrBeforeMonth, isSameMonth, monthKey, shortMonthLabel } from '../utils/date'
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../data/categories'
+import {
+  dateForMonthKey,
+  isOnOrBeforeMonth,
+  isSameMonth,
+  monthKey,
+  nextMonthKey,
+  shortMonthLabel,
+} from '../utils/date'
 
 const STORAGE_KEY = 'px-financeiro:data'
 
-function newId() {
+export function newId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
   }
@@ -23,10 +31,21 @@ function sumAmounts(items) {
 
 // Orçamentos são guardados por mês ({ 'YYYY-MM': valor }); a chave 'default'
 // cobre meses sem valor próprio e absorve o formato antigo (número único).
-function normalizeBudgets(data) {
+export function normalizeBudgets(data) {
   if (data?.budgets && typeof data.budgets === 'object') return data.budgets
   if (typeof data?.budget === 'number') return { default: data.budget }
   return { default: initialBudget }
+}
+
+// Backups v1 não têm categories/recurring/initialBalance
+function normalizeCategories(data) {
+  const cats = data?.categories
+  if (cats && Array.isArray(cats.income) && Array.isArray(cats.expense)) return cats
+  return { income: INCOME_CATEGORIES, expense: EXPENSE_CATEGORIES }
+}
+
+function normalizeInitialBalance(data) {
+  return typeof data?.initialBalance === 'number' ? data.initialBalance : accountBalance
 }
 
 const stored = (() => {
@@ -44,13 +63,19 @@ export function useFinanceData() {
   const [expenses, setExpenses] = useState(stored?.expenses ?? initialExpenses)
   const [budgets, setBudgets] = useState(() => normalizeBudgets(stored))
   const [goals, setGoals] = useState(stored?.goals ?? initialGoals)
+  const [recurring, setRecurring] = useState(stored?.recurring ?? [])
+  const [categories, setCategories] = useState(() => normalizeCategories(stored))
+  const [initialBalance, setInitialBalance] = useState(() => normalizeInitialBalance(stored))
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
   const [storageError, setStorageError] = useState(null)
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ incomes, expenses, budgets, goals }))
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ incomes, expenses, budgets, goals, recurring, categories, initialBalance })
+      )
       setStorageError(null)
     } catch (error) {
       console.error('Falha ao salvar dados no localStorage:', error)
@@ -58,14 +83,53 @@ export function useFinanceData() {
         'Não foi possível salvar seus dados no navegador. Exporte um backup para não perdê-los.'
       )
     }
-  }, [incomes, expenses, budgets, goals])
+  }, [incomes, expenses, budgets, goals, recurring, categories, initialBalance])
+
+  // Materializa transações recorrentes: para cada modelo, gera as ocorrências dos
+  // meses entre a última geração e o mês selecionado (idempotente — ocorrências
+  // excluídas pelo usuário não voltam, pois lastGeneratedKey só avança).
+  useEffect(() => {
+    const selectedKey = monthKey(selectedYear, selectedMonth)
+    const newIncomes = []
+    const newExpenses = []
+    let changed = false
+    const updated = recurring.map((template) => {
+      if (template.lastGeneratedKey >= selectedKey) return template
+      let key = nextMonthKey(template.lastGeneratedKey)
+      while (key <= selectedKey) {
+        const occurrence = {
+          id: newId(),
+          description: template.description,
+          amount: template.amount,
+          category: template.category,
+          date: dateForMonthKey(key, template.day),
+          recurringId: template.id,
+        }
+        if (template.type === 'income') newIncomes.push(occurrence)
+        else newExpenses.push(occurrence)
+        key = nextMonthKey(key)
+      }
+      changed = true
+      return { ...template, lastGeneratedKey: selectedKey }
+    })
+    if (!changed) return
+    if (newIncomes.length) setIncomes((prev) => [...prev, ...newIncomes])
+    if (newExpenses.length) setExpenses((prev) => [...prev, ...newExpenses])
+    setRecurring(updated)
+  }, [selectedYear, selectedMonth, recurring])
 
   const filteredIncomes = useMemo(
-    () => incomes.filter((i) => isSameMonth(i.date, selectedYear, selectedMonth)),
+    () =>
+      incomes
+        .filter((i) => isSameMonth(i.date, selectedYear, selectedMonth))
+        .sort((a, b) => b.date.localeCompare(a.date)),
     [incomes, selectedYear, selectedMonth]
   )
   const filteredExpenses = useMemo(
-    () => expenses.filter((e) => isSameMonth(e.date, selectedYear, selectedMonth)),
+    () =>
+      expenses
+        .filter((e) => isSameMonth(e.date, selectedYear, selectedMonth))
+        .sort((a, b) => b.date.localeCompare(a.date)),
     [expenses, selectedYear, selectedMonth]
   )
 
@@ -77,10 +141,10 @@ export function useFinanceData() {
   // Saldo acumulado até o fim do mês selecionado
   const balance = useMemo(
     () =>
-      accountBalance +
+      initialBalance +
       sumAmounts(incomes.filter((i) => isOnOrBeforeMonth(i.date, selectedYear, selectedMonth))) -
       sumAmounts(expenses.filter((e) => isOnOrBeforeMonth(e.date, selectedYear, selectedMonth))),
-    [incomes, expenses, selectedYear, selectedMonth]
+    [incomes, expenses, initialBalance, selectedYear, selectedMonth]
   )
 
   const previousMonth = selectedMonth === 1 ? 12 : selectedMonth - 1
@@ -132,14 +196,31 @@ export function useFinanceData() {
       income: sumAmounts(incomes.filter((i) => isSameMonth(i.date, year, month))),
       expense: sumAmounts(expenses.filter((e) => isSameMonth(e.date, year, month))),
       balance:
-        accountBalance +
+        initialBalance +
         sumAmounts(incomes.filter((i) => isOnOrBeforeMonth(i.date, year, month))) -
         sumAmounts(expenses.filter((e) => isOnOrBeforeMonth(e.date, year, month))),
     }))
-  }, [incomes, expenses, selectedYear, selectedMonth])
+  }, [incomes, expenses, initialBalance, selectedYear, selectedMonth])
 
-  function addIncome(income) {
+  function makeRecurringTemplate(type, transaction) {
+    const startKey = transaction.date.slice(0, 7)
+    return {
+      id: newId(),
+      type,
+      description: transaction.description,
+      amount: transaction.amount,
+      category: transaction.category,
+      day: Number(transaction.date.slice(8, 10)),
+      startKey,
+      lastGeneratedKey: startKey,
+    }
+  }
+
+  function addIncome(income, repeatMonthly = false) {
     setIncomes((prev) => [...prev, { ...income, id: newId() }])
+    if (repeatMonthly) {
+      setRecurring((prev) => [...prev, makeRecurringTemplate('income', income)])
+    }
   }
 
   function editIncome(id, updates) {
@@ -150,8 +231,11 @@ export function useFinanceData() {
     setIncomes((prev) => prev.filter((i) => i.id !== id))
   }
 
-  function addExpense(expense) {
+  function addExpense(expense, repeatMonthly = false) {
     setExpenses((prev) => [...prev, { ...expense, id: newId() }])
+    if (repeatMonthly) {
+      setRecurring((prev) => [...prev, makeRecurringTemplate('expense', expense)])
+    }
   }
 
   function editExpense(id, updates) {
@@ -162,8 +246,32 @@ export function useFinanceData() {
     setExpenses((prev) => prev.filter((e) => e.id !== id))
   }
 
+  function deleteRecurring(id) {
+    setRecurring((prev) => prev.filter((t) => t.id !== id))
+  }
+
+  function addCategory(type, name) {
+    const trimmed = name.trim()
+    if (!trimmed) return 'Informe um nome'
+    const exists = categories[type].some((c) => c.toLowerCase() === trimmed.toLowerCase())
+    if (exists) return 'Essa categoria já existe'
+    setCategories((prev) => ({ ...prev, [type]: [...prev[type], trimmed] }))
+    return null
+  }
+
+  function removeCategory(type, name) {
+    if (categories[type].length <= 1) return 'Mantenha ao menos uma categoria'
+    const inUse =
+      type === 'income' ? incomes.some((i) => i.category === name) : expenses.some((e) => e.category === name)
+    if (inUse) return 'Categoria em uso por lançamentos existentes'
+    const inRecurringUse = recurring.some((t) => t.type === type && t.category === name)
+    if (inRecurringUse) return 'Categoria em uso por uma recorrência'
+    setCategories((prev) => ({ ...prev, [type]: prev[type].filter((c) => c !== name) }))
+    return null
+  }
+
   function addGoal(goal) {
-    setGoals((prev) => [...prev, { ...goal, id: newId(), current: 0 }])
+    setGoals((prev) => [...prev, { ...goal, id: newId(), current: 0, history: [] }])
   }
 
   function editGoal(id, updates) {
@@ -175,7 +283,27 @@ export function useFinanceData() {
   }
 
   function addContribution(goalId, amount) {
-    setGoals((prev) => prev.map((g) => (g.id === goalId ? { ...g, current: g.current + amount } : g)))
+    const entry = { id: newId(), date: new Date().toISOString().slice(0, 10), amount }
+    setGoals((prev) =>
+      prev.map((g) =>
+        g.id === goalId ? { ...g, current: g.current + amount, history: [...(g.history ?? []), entry] } : g
+      )
+    )
+  }
+
+  function deleteContribution(goalId, entryId) {
+    setGoals((prev) =>
+      prev.map((g) => {
+        if (g.id !== goalId) return g
+        const entry = (g.history ?? []).find((h) => h.id === entryId)
+        if (!entry) return g
+        return {
+          ...g,
+          current: g.current - entry.amount,
+          history: g.history.filter((h) => h.id !== entryId),
+        }
+      })
+    )
   }
 
   function goToPreviousMonth() {
@@ -201,12 +329,15 @@ export function useFinanceData() {
   function exportData() {
     return {
       app: 'px-financeiro',
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       incomes,
       expenses,
       budgets,
       goals,
+      recurring,
+      categories,
+      initialBalance,
     }
   }
 
@@ -224,6 +355,9 @@ export function useFinanceData() {
     setExpenses(data.expenses)
     setGoals(data.goals)
     setBudgets(normalizeBudgets(data))
+    setRecurring(Array.isArray(data.recurring) ? data.recurring : [])
+    setCategories(normalizeCategories(data))
+    setInitialBalance(normalizeInitialBalance(data))
   }
 
   function resetData() {
@@ -231,6 +365,9 @@ export function useFinanceData() {
     setExpenses(initialExpenses)
     setBudgets({ default: initialBudget })
     setGoals(initialGoals)
+    setRecurring([])
+    setCategories({ income: INCOME_CATEGORIES, expense: EXPENSE_CATEGORIES })
+    setInitialBalance(accountBalance)
   }
 
   return {
@@ -238,6 +375,9 @@ export function useFinanceData() {
     expenses,
     budget,
     goals,
+    recurring,
+    categories,
+    initialBalance,
     filteredIncomes,
     filteredExpenses,
     selectedMonth,
@@ -259,11 +399,16 @@ export function useFinanceData() {
     addExpense,
     editExpense,
     deleteExpense,
+    deleteRecurring,
+    addCategory,
+    removeCategory,
     addGoal,
     editGoal,
     deleteGoal,
     addContribution,
+    deleteContribution,
     setBudget,
+    setInitialBalance,
     goToPreviousMonth,
     goToNextMonth,
     exportData,
