@@ -62,7 +62,15 @@ src/
 
 ## Backup dos dados
 
-Os dados vivem apenas no `localStorage` do seu navegador (chave `px-financeiro:data`). Limpar os
+Os dados vivem no `localStorage` do seu navegador (chave `px-financeiro:data`). Limpar os
 dados de navegação apaga tudo — use **Backup e dados → Exportar dados (JSON)** periodicamente para
 guardar uma cópia, e **Importar dados** para restaurá-la. Backups antigos (v1) são aceitos na
 importação; os campos novos assumem valores padrão.
+
+## Sincronização entre aparelhos (opcional)
+
+Com uma conta (menu **Conta e sincronização**, ícone de pessoa), os dados são sincronizados
+entre aparelhos via Firebase — **criptografados de ponta a ponta** no aparelho, com uma
+frase-secreta que só você conhece, antes de qualquer upload. Sem conta, nada sai do aparelho.
+Para ativar o recurso em uma instalação própria, siga o passo a passo de
+[CONFIGURAR-NUVEM.md](CONFIGURAR-NUVEM.md).

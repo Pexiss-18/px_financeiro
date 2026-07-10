@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// Regras de segurança do Firestore para o px_financeiro.
+//
+// Cada usuário autenticado só pode ler e escrever o PRÓPRIO documento
+// (users/{uid}). Ninguém — nem outro usuário logado — acessa dados alheios.
+// O conteúdo do documento já chega criptografado de ponta a ponta pelo app.
+//
+// Como aplicar: console do Firebase → Firestore Database → Regras →
+// cole este arquivo → Publicar. (Passo a passo em CONFIGURAR-NUVEM.md.)
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      allow read, delete: if isOwner();
+
+      // Na escrita, aceita apenas os campos esperados, com o envelope
+      // limitado a ~900 KB (o Firestore impõe 1 MiB por documento).
+      allow create, update: if isOwner()
+        && request.resource.data.keys().hasOnly(['envelope', 'updatedAt'])
+        && request.resource.data.envelope is string
+        && request.resource.data.envelope.size() < 900000
+        && request.resource.data.updatedAt is number;
+    }
+  }
+}

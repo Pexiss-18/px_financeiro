@@ -12,6 +12,7 @@ import {
   Upload,
 } from 'lucide-react'
 import MonthSelector from './MonthSelector'
+import AccountMenu from './AccountMenu'
 import { buildTransactionsCsv } from '../utils/csv'
 
 function IconButton({ label, onClick, children, badge = false }) {
@@ -42,7 +43,7 @@ function Dropdown({ onClose, children }) {
   )
 }
 
-export default function TopBar({ title, darkMode, setDarkMode, finance }) {
+export default function TopBar({ title, darkMode, setDarkMode, finance, sync }) {
   const {
     selectedMonth,
     selectedYear,
@@ -237,6 +238,13 @@ export default function TopBar({ title, darkMode, setDarkMode, finance }) {
             aria-hidden="true"
           />
         </div>
+
+        <AccountMenu
+          sync={sync}
+          open={openMenu === 'account'}
+          onToggle={() => setOpenMenu(openMenu === 'account' ? null : 'account')}
+          onClose={() => setOpenMenu(null)}
+        />
 
         <IconButton
           label={darkMode ? 'Ativar tema claro' : 'Ativar tema escuro'}

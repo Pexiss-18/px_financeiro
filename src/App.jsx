@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar'
 import BottomNav from './components/BottomNav'
 import TopBar from './components/TopBar'
 import { useFinanceData } from './hooks/useFinanceData'
+import { useCloudSync } from './hooks/useCloudSync'
 
 const Dashboard = lazy(() => import('./components/Dashboard'))
 const IncomeManager = lazy(() => import('./components/IncomeManager'))
@@ -33,6 +34,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [darkMode, setDarkMode] = useState(getInitialDarkMode)
   const finance = useFinanceData()
+  const sync = useCloudSync(finance)
 
   useEffect(() => {
     try {
@@ -47,7 +49,13 @@ export default function App() {
       <div className="min-h-screen flex text-slate-900 dark:text-slate-100 bg-gradient-to-br from-slate-100 via-slate-200 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} tabs={TABS} />
         <div className="flex-1 flex flex-col min-h-screen min-w-0">
-          <TopBar title={TABS[activeTab]} darkMode={darkMode} setDarkMode={setDarkMode} finance={finance} />
+          <TopBar
+            title={TABS[activeTab]}
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            finance={finance}
+            sync={sync}
+          />
           <main className="flex-1 p-4 pb-24 sm:p-6 sm:pb-6 lg:p-10 overflow-y-auto">
             <Suspense fallback={<TabFallback />}>
               {activeTab === 'dashboard' && <Dashboard finance={finance} darkMode={darkMode} />}

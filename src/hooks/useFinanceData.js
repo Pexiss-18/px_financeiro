@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   accountBalance,
   initialBudget,
@@ -70,11 +70,44 @@ export function useFinanceData() {
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
   const [storageError, setStorageError] = useState(null)
 
+  // Carimbo (ms) da última alteração feita pelo usuário — é o que decide, na
+  // sincronização entre aparelhos, qual versão dos dados é a mais recente
+  // ("última escrita vence"). 0 = dados de exemplo nunca alterados.
+  const [dataUpdatedAt, setDataUpdatedAt] = useState(stored?.updatedAt ?? 0)
+  const dataUpdatedAtRef = useRef(stored?.updatedAt ?? 0)
+  // true na primeira execução do efeito de persistência (montagem): nada
+  // mudou de fato, então o carimbo não deve avançar.
+  const skipStampRef = useRef(true)
+  // Quando dados vindos da nuvem são aplicados, eles devem manter o carimbo
+  // remoto (avançar o carimbo faria o aparelho reenviar o que acabou de receber).
+  const pendingStampRef = useRef(null)
+
   useEffect(() => {
+    let stamp
+    if (skipStampRef.current) {
+      skipStampRef.current = false
+      stamp = dataUpdatedAtRef.current
+    } else if (pendingStampRef.current !== null) {
+      stamp = pendingStampRef.current
+      pendingStampRef.current = null
+    } else {
+      stamp = Math.max(Date.now(), dataUpdatedAtRef.current + 1)
+    }
+    dataUpdatedAtRef.current = stamp
+    setDataUpdatedAt(stamp)
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ incomes, expenses, budgets, goals, recurring, categories, initialBalance })
+        JSON.stringify({
+          incomes,
+          expenses,
+          budgets,
+          goals,
+          recurring,
+          categories,
+          initialBalance,
+          updatedAt: stamp,
+        })
       )
       setStorageError(null)
     } catch (error) {
@@ -360,6 +393,29 @@ export function useFinanceData() {
     setInitialBalance(normalizeInitialBalance(data))
   }
 
+  // Aplica dados recebidos da nuvem preservando o carimbo remoto.
+  function applyRemoteData(data, remoteUpdatedAt) {
+    pendingStampRef.current = remoteUpdatedAt
+    try {
+      importData(data)
+    } catch (error) {
+      pendingStampRef.current = null
+      throw error
+    }
+  }
+
+  // Reaplica os dados atuais com um carimbo novo — usado pela sincronização
+  // para forçar o envio (ex.: primeira subida ou "usar dados deste aparelho").
+  function touchData(minStamp = 0) {
+    const snapshot = exportData()
+    // Clona um dos arrays: com as mesmas referências o React ignoraria a
+    // atualização e o efeito de persistência (que grava o carimbo) não rodaria.
+    applyRemoteData(
+      { ...snapshot, incomes: [...snapshot.incomes] },
+      Math.max(Date.now(), dataUpdatedAtRef.current + 1, minStamp)
+    )
+  }
+
   function resetData() {
     setIncomes(initialIncomes)
     setExpenses(initialExpenses)
@@ -393,6 +449,9 @@ export function useFinanceData() {
     expensesByCategory,
     monthlyEvolution,
     storageError,
+    dataUpdatedAt,
+    applyRemoteData,
+    touchData,
     addIncome,
     editIncome,
     deleteIncome,

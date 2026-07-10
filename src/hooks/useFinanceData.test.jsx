@@ -199,6 +199,30 @@ describe('useFinanceData', () => {
     expect(result.current.initialBalance).toBe(24650)
   })
 
+  it('avança o carimbo de sincronização em alterações e preserva o carimbo remoto', () => {
+    const { result } = setup()
+    // dados de exemplo intocados: carimbo 0 (nunca sobe para a nuvem sozinho)
+    expect(result.current.dataUpdatedAt).toBe(0)
+
+    act(() =>
+      result.current.addIncome({ description: 'A', amount: 1, date: '2026-07-01', category: 'Extra' })
+    )
+    const stamp = result.current.dataUpdatedAt
+    expect(stamp).toBeGreaterThan(0)
+    expect(JSON.parse(localStorage.getItem('px-financeiro:data')).updatedAt).toBe(stamp)
+
+    // dados vindos da nuvem mantêm o carimbo remoto (não disparam reenvio)
+    act(() =>
+      result.current.applyRemoteData({ incomes: [], expenses: [], goals: [] }, 1234567890)
+    )
+    expect(result.current.dataUpdatedAt).toBe(1234567890)
+    expect(JSON.parse(localStorage.getItem('px-financeiro:data')).updatedAt).toBe(1234567890)
+
+    // touchData força um carimbo mais novo que o mínimo pedido
+    act(() => result.current.touchData(9999999999999))
+    expect(result.current.dataUpdatedAt).toBeGreaterThanOrEqual(9999999999999)
+  })
+
   it('exporta backup v2 com todos os campos', () => {
     const { result } = setup()
     const data = result.current.exportData()
