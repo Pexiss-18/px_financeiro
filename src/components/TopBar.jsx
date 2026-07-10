@@ -21,7 +21,7 @@ function IconButton({ label, onClick, children, badge = false }) {
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="relative w-10 h-10 rounded-xl glass-card flex items-center justify-center hover:scale-105 transition-transform"
+      className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl glass-card flex items-center justify-center hover:scale-105 transition-transform"
     >
       {children}
       {badge && (
@@ -141,7 +141,7 @@ export default function TopBar({ title, darkMode, setDarkMode, finance }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 px-4 sm:px-6 lg:px-10 py-6 border-b border-white/20 dark:border-white/10">
       <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{title}</h1>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <MonthSelector
           month={selectedMonth}
           year={selectedYear}

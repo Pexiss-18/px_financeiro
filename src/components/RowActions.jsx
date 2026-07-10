@@ -26,7 +26,9 @@ export default function RowActions({ confirming, onEdit, onDeleteClick, onConfir
   }
 
   return (
-    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+    // Em telas de toque não existe hover: os botões ficam sempre visíveis;
+    // o esconde/mostra só se aplica a dispositivos com ponteiro (mouse)
+    <div className="flex items-center gap-1.5 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
       <button
         type="button"
         onClick={onEdit}

@@ -26,7 +26,7 @@ export default function MonthSelector({ month, year, onPrev, onNext }) {
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
-      <span className="text-sm font-semibold w-36 text-center select-none">
+      <span className="text-sm font-semibold w-28 sm:w-36 text-center select-none">
         {MONTH_LABELS[month - 1]} {year}
       </span>
       <button

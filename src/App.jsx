@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import Sidebar from './components/Sidebar'
+import BottomNav from './components/BottomNav'
 import TopBar from './components/TopBar'
 import { useFinanceData } from './hooks/useFinanceData'
 
@@ -47,7 +48,7 @@ export default function App() {
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} tabs={TABS} />
         <div className="flex-1 flex flex-col min-h-screen min-w-0">
           <TopBar title={TABS[activeTab]} darkMode={darkMode} setDarkMode={setDarkMode} finance={finance} />
-          <main className="flex-1 p-4 sm:p-6 lg:p-10 overflow-y-auto">
+          <main className="flex-1 p-4 pb-24 sm:p-6 sm:pb-6 lg:p-10 overflow-y-auto">
             <Suspense fallback={<TabFallback />}>
               {activeTab === 'dashboard' && <Dashboard finance={finance} darkMode={darkMode} />}
               {activeTab === 'income' && <IncomeManager finance={finance} />}
@@ -56,6 +57,7 @@ export default function App() {
             </Suspense>
           </main>
         </div>
+        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} tabs={TABS} />
       </div>
     </div>
   )

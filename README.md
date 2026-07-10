@@ -23,6 +23,9 @@ persistidos no `localStorage` do navegador — nenhum servidor é necessário.
 - **Backup e dados** (ícone de banco de dados no topo): exportar em JSON (backup completo) ou CSV
   (transações, pronto para Excel pt-BR), importar um backup e restaurar os dados de exemplo.
 - **Tema claro/escuro** persistido, respeitando a preferência do sistema na primeira visita.
+- **PWA / celular**: instalável ("Adicionar à tela de início"), funciona offline, navegação
+  inferior no mobile e ícone próprio. Publicado em
+  [pexiss-18.github.io/px_financeiro](https://pexiss-18.github.io/px_financeiro/).
 
 ## Como rodar
 
