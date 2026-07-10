@@ -38,13 +38,9 @@ export function generateSalt() {
 }
 
 export async function deriveKey(passphrase, saltBase64) {
-  const material = await subtle().importKey(
-    'raw',
-    new TextEncoder().encode(passphrase),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  )
+  const material = await subtle().importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, [
+    'deriveKey',
+  ])
   return subtle().deriveKey(
     { name: 'PBKDF2', salt: fromBase64(saltBase64), iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     material,
@@ -62,10 +58,7 @@ export async function exportKey(key) {
 }
 
 export async function importKey(rawBase64) {
-  return subtle().importKey('raw', fromBase64(rawBase64), { name: 'AES-GCM' }, true, [
-    'encrypt',
-    'decrypt',
-  ])
+  return subtle().importKey('raw', fromBase64(rawBase64), { name: 'AES-GCM' }, true, ['encrypt', 'decrypt'])
 }
 
 export async function encryptJson(key, saltBase64, data) {

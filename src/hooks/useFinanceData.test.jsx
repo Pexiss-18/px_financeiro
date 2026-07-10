@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { newId, normalizeBudgets, useFinanceData } from './useFinanceData'
@@ -199,6 +200,19 @@ describe('useFinanceData', () => {
     expect(result.current.initialBalance).toBe(24650)
   })
 
+  it('não carimba dados intocados na montagem dupla do StrictMode', () => {
+    // Em dev, o StrictMode roda os efeitos duas vezes; a segunda execução não
+    // pode fazer os dados de exemplo parecerem "alterados agora" (isso criava
+    // falsos conflitos com a nuvem em aparelhos novos).
+    const { result } = renderHook(() => useFinanceData(), { wrapper: StrictMode })
+    expect(result.current.dataUpdatedAt).toBe(0)
+    // uma alteração real continua carimbando
+    act(() =>
+      result.current.addIncome({ description: 'A', amount: 1, date: '2026-07-01', category: 'Extra' })
+    )
+    expect(result.current.dataUpdatedAt).toBeGreaterThan(0)
+  })
+
   it('avança o carimbo de sincronização em alterações e preserva o carimbo remoto', () => {
     const { result } = setup()
     // dados de exemplo intocados: carimbo 0 (nunca sobe para a nuvem sozinho)
@@ -212,9 +226,7 @@ describe('useFinanceData', () => {
     expect(JSON.parse(localStorage.getItem('px-financeiro:data')).updatedAt).toBe(stamp)
 
     // dados vindos da nuvem mantêm o carimbo remoto (não disparam reenvio)
-    act(() =>
-      result.current.applyRemoteData({ incomes: [], expenses: [], goals: [] }, 1234567890)
-    )
+    act(() => result.current.applyRemoteData({ incomes: [], expenses: [], goals: [] }, 1234567890))
     expect(result.current.dataUpdatedAt).toBe(1234567890)
     expect(JSON.parse(localStorage.getItem('px-financeiro:data')).updatedAt).toBe(1234567890)
 

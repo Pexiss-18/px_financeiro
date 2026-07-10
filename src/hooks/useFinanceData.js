@@ -75,40 +75,34 @@ export function useFinanceData() {
   // ("última escrita vence"). 0 = dados de exemplo nunca alterados.
   const [dataUpdatedAt, setDataUpdatedAt] = useState(stored?.updatedAt ?? 0)
   const dataUpdatedAtRef = useRef(stored?.updatedAt ?? 0)
-  // true na primeira execução do efeito de persistência (montagem): nada
-  // mudou de fato, então o carimbo não deve avançar.
-  const skipStampRef = useRef(true)
+  // Serialização da última gravação: o carimbo só avança quando o CONTEÚDO
+  // muda de fato. Isso evita carimbos falsos em regravações da montagem
+  // (ex.: StrictMode/HMR rodam o efeito de novo com os mesmos dados), que
+  // fariam dados de exemplo intocados parecerem mais novos que a nuvem.
+  const lastSavedRef = useRef(null)
   // Quando dados vindos da nuvem são aplicados, eles devem manter o carimbo
   // remoto (avançar o carimbo faria o aparelho reenviar o que acabou de receber).
   const pendingStampRef = useRef(null)
 
   useEffect(() => {
+    const payload = { incomes, expenses, budgets, goals, recurring, categories, initialBalance }
+    const serialized = JSON.stringify(payload)
+    const pending = pendingStampRef.current
+    pendingStampRef.current = null
     let stamp
-    if (skipStampRef.current) {
-      skipStampRef.current = false
+    if (pending !== null) {
+      stamp = pending
+    } else if (lastSavedRef.current === null || lastSavedRef.current === serialized) {
+      // primeira gravação desta montagem, ou conteúdo idêntico ao já salvo
       stamp = dataUpdatedAtRef.current
-    } else if (pendingStampRef.current !== null) {
-      stamp = pendingStampRef.current
-      pendingStampRef.current = null
     } else {
       stamp = Math.max(Date.now(), dataUpdatedAtRef.current + 1)
     }
+    lastSavedRef.current = serialized
     dataUpdatedAtRef.current = stamp
     setDataUpdatedAt(stamp)
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          incomes,
-          expenses,
-          budgets,
-          goals,
-          recurring,
-          categories,
-          initialBalance,
-          updatedAt: stamp,
-        })
-      )
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...payload, updatedAt: stamp }))
       setStorageError(null)
     } catch (error) {
       console.error('Falha ao salvar dados no localStorage:', error)
