@@ -59,13 +59,16 @@ const stored = (() => {
 
 export function useFinanceData() {
   const now = new Date()
-  const [incomes, setIncomes] = useState(stored?.incomes ?? initialIncomes)
-  const [expenses, setExpenses] = useState(stored?.expenses ?? initialExpenses)
-  const [budgets, setBudgets] = useState(() => normalizeBudgets(stored))
-  const [goals, setGoals] = useState(stored?.goals ?? initialGoals)
+  // Instalações novas começam vazias — os dados de exemplo só entram se o
+  // usuário pedir ("Restaurar dados de exemplo"). Os fallbacks de import
+  // (normalize*) continuam usando os padrões antigos para backups v1.
+  const [incomes, setIncomes] = useState(stored?.incomes ?? [])
+  const [expenses, setExpenses] = useState(stored?.expenses ?? [])
+  const [budgets, setBudgets] = useState(() => (stored ? normalizeBudgets(stored) : { default: 0 }))
+  const [goals, setGoals] = useState(stored?.goals ?? [])
   const [recurring, setRecurring] = useState(stored?.recurring ?? [])
   const [categories, setCategories] = useState(() => normalizeCategories(stored))
-  const [initialBalance, setInitialBalance] = useState(() => normalizeInitialBalance(stored))
+  const [initialBalance, setInitialBalance] = useState(() => (stored ? normalizeInitialBalance(stored) : 0))
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
   const [storageError, setStorageError] = useState(null)
@@ -420,6 +423,18 @@ export function useFinanceData() {
     setInitialBalance(accountBalance)
   }
 
+  // Apaga tudo e volta ao estado de instalação nova (com a conta conectada,
+  // o estado vazio também é sincronizado para a nuvem).
+  function clearData() {
+    setIncomes([])
+    setExpenses([])
+    setBudgets({ default: 0 })
+    setGoals([])
+    setRecurring([])
+    setCategories({ income: INCOME_CATEGORIES, expense: EXPENSE_CATEGORIES })
+    setInitialBalance(0)
+  }
+
   return {
     incomes,
     expenses,
@@ -467,5 +482,6 @@ export function useFinanceData() {
     exportData,
     importData,
     resetData,
+    clearData,
   }
 }

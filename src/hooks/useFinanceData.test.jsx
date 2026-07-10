@@ -19,6 +19,15 @@ function setup() {
   return renderHook(() => useFinanceData())
 }
 
+// Instalações novas começam vazias; os testes que dependem dos dados de
+// exemplo (junho/2026) os carregam explicitamente, como o usuário faria
+// em "Restaurar dados de exemplo".
+function setupWithSample() {
+  const rendered = setup()
+  act(() => rendered.result.current.resetData())
+  return rendered
+}
+
 describe('normalizeBudgets', () => {
   it('migra o formato antigo (número único) para orçamento por mês', () => {
     expect(normalizeBudgets({ budget: 4000 })).toEqual({ default: 4000 })
@@ -38,8 +47,21 @@ describe('newId', () => {
 })
 
 describe('useFinanceData', () => {
-  it('calcula o saldo acumulado até o fim do mês selecionado', () => {
+  it('começa vazio em instalações novas', () => {
     const { result } = setup()
+    expect(result.current.incomes).toEqual([])
+    expect(result.current.expenses).toEqual([])
+    expect(result.current.goals).toEqual([])
+    expect(result.current.recurring).toEqual([])
+    expect(result.current.balance).toBe(0)
+    expect(result.current.initialBalance).toBe(0)
+    expect(result.current.budget).toBe(0)
+    // categorias padrão continuam disponíveis para os formulários
+    expect(result.current.categories.expense).toContain('Moradia')
+  })
+
+  it('calcula o saldo acumulado até o fim do mês selecionado', () => {
+    const { result } = setupWithSample()
     // julho/2026: saldo inicial 24650 + receitas de junho 10040 - despesas de junho 4670
     expect(result.current.balance).toBe(30020)
     act(() => result.current.goToPreviousMonth())
@@ -48,7 +70,7 @@ describe('useFinanceData', () => {
   })
 
   it('calcula o trend em relação ao mês anterior (null sem dados)', () => {
-    const { result } = setup()
+    const { result } = setupWithSample()
     // julho: 0 de receitas vs 10040 em junho
     expect(result.current.incomeTrend).toBe(-100)
     expect(result.current.expenseTrend).toBe(-100)
@@ -59,14 +81,14 @@ describe('useFinanceData', () => {
   })
 
   it('ordena as transações do mês por data decrescente', () => {
-    const { result } = setup()
+    const { result } = setupWithSample()
     act(() => result.current.goToPreviousMonth())
     const dates = result.current.filteredIncomes.map((i) => i.date)
     expect(dates).toEqual(['2026-06-15', '2026-06-12', '2026-06-05'])
   })
 
   it('mantém o orçamento por mês, com valor padrão para meses sem ajuste', () => {
-    const { result } = setup()
+    const { result } = setupWithSample()
     expect(result.current.budget).toBe(5800)
     act(() => result.current.setBudget(7000))
     expect(result.current.budget).toBe(7000)
@@ -129,7 +151,7 @@ describe('useFinanceData', () => {
   })
 
   it('registra e exclui aportes no histórico da meta', () => {
-    const { result } = setup()
+    const { result } = setupWithSample()
     const goal = result.current.goals[0]
     const before = goal.current
     act(() => result.current.addContribution(goal.id, 500))
@@ -145,7 +167,7 @@ describe('useFinanceData', () => {
   })
 
   it('gerencia categorias, bloqueando remoção em uso e duplicatas', () => {
-    const { result } = setup()
+    const { result } = setupWithSample()
     let error
     act(() => {
       error = result.current.addCategory('income', 'Aluguel recebido')
@@ -174,7 +196,7 @@ describe('useFinanceData', () => {
   })
 
   it('recalcula o saldo ao editar o saldo inicial', () => {
-    const { result } = setup()
+    const { result } = setupWithSample()
     act(() => result.current.setInitialBalance(1000))
     expect(result.current.balance).toBe(1000 + 10040 - 4670)
   })

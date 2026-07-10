@@ -4,6 +4,7 @@ import {
   Bell,
   Database,
   Download,
+  Eraser,
   FileSpreadsheet,
   Moon,
   RotateCcw,
@@ -57,6 +58,7 @@ export default function TopBar({ title, darkMode, setDarkMode, finance, sync }) 
     exportData,
     importData,
     resetData,
+    clearData,
   } = finance
   const [openMenu, setOpenMenu] = useState(null)
   const [importFeedback, setImportFeedback] = useState(null)
@@ -129,6 +131,17 @@ export default function TopBar({ title, darkMode, setDarkMode, finance, sync }) 
   function handleReset() {
     if (window.confirm('Restaurar os dados de exemplo? Todos os lançamentos atuais serão substituídos.')) {
       resetData()
+      setOpenMenu(null)
+    }
+  }
+
+  function handleClear() {
+    if (
+      window.confirm(
+        'Apagar TODOS os lançamentos, metas e orçamentos? Se a conta estiver conectada, a nuvem também será zerada. Considere exportar um backup antes.'
+      )
+    ) {
+      clearData()
       setOpenMenu(null)
     }
   }
@@ -221,6 +234,13 @@ export default function TopBar({ title, darkMode, setDarkMode, finance, sync }) 
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg text-expense hover:bg-expense/10 transition-colors"
               >
                 <RotateCcw className="w-4 h-4" /> Restaurar dados de exemplo
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg text-expense hover:bg-expense/10 transition-colors"
+              >
+                <Eraser className="w-4 h-4" /> Zerar todos os dados
               </button>
               {importFeedback && (
                 <p className={`px-3 py-2 text-xs ${toneClasses[importFeedback.tone]}`}>
