@@ -108,6 +108,43 @@ describe('useFinanceData', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
+  it('marca despesas como pagas por lançamento, sem afetar outros meses', () => {
+    const { result } = setup()
+    act(() =>
+      result.current.addExpense(
+        { description: 'Aluguel', amount: 1500, category: 'Moradia', date: '2026-07-05' },
+        true
+      )
+    )
+    act(() =>
+      result.current.addExpense({
+        description: 'Mercado',
+        amount: 400,
+        category: 'Alimentação',
+        date: '2026-07-10',
+      })
+    )
+    expect(result.current.totalPaidExpenses).toBe(0)
+
+    const rent = result.current.filteredExpenses.find((e) => e.description === 'Aluguel')
+    act(() => result.current.toggleExpensePaid(rent.id))
+    expect(result.current.totalPaidExpenses).toBe(1500)
+    expect(result.current.totalExpenses).toBe(1900)
+
+    // editar o lançamento preserva a marcação
+    act(() => result.current.editExpense(rent.id, { amount: 1600 }))
+    expect(result.current.totalPaidExpenses).toBe(1600)
+
+    // a ocorrência de agosto da mesma recorrência nasce pendente
+    act(() => result.current.goToNextMonth())
+    expect(result.current.filteredExpenses).toHaveLength(1)
+    expect(result.current.totalPaidExpenses).toBe(0)
+
+    act(() => result.current.goToPreviousMonth())
+    act(() => result.current.toggleExpensePaid(rent.id))
+    expect(result.current.totalPaidExpenses).toBe(0)
+  })
+
   it('materializa recorrências nos meses seguintes sem recriar ocorrências excluídas', () => {
     const { result } = setup()
     act(() =>

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowUpCircle, PlusCircle, Save, Search, Settings2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, CheckCircle2, Circle, PlusCircle, Save, Search, Settings2, X } from 'lucide-react'
 import RowActions from './RowActions'
 import FieldError from './FieldError'
 import CategoryManager from './CategoryManager'
@@ -22,10 +22,12 @@ export default function ExpenseManager({ finance }) {
   const {
     filteredExpenses,
     totalExpenses,
+    totalPaidExpenses,
     budget,
     setBudget,
     addExpense,
     editExpense,
+    toggleExpensePaid,
     deleteExpense,
     budgetUsedPct,
     selectedYear,
@@ -40,6 +42,7 @@ export default function ExpenseManager({ finance }) {
   const [form, setForm] = useState(() => emptyForm(selectedYear, selectedMonth, cats))
   const [errors, setErrors] = useState({})
   const [editingId, setEditingId] = useState(null)
+  const formRef = useRef(null)
   const [confirmingId, setConfirmingId] = useState(null)
   const [repeatMonthly, setRepeatMonthly] = useState(false)
   const [managingCategories, setManagingCategories] = useState(false)
@@ -120,6 +123,8 @@ export default function ExpenseManager({ finance }) {
       category: expense.category,
       date: expense.date,
     })
+    // No celular o formulário fica acima da lista, fora da tela: leva o usuário até ele
+    formRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
   }
 
   function handleCancelEdit() {
@@ -141,6 +146,9 @@ export default function ExpenseManager({ finance }) {
     }
     return error
   }
+
+  const paidCount = filteredExpenses.filter((e) => e.paid).length
+  const unpaidTotal = totalExpenses - totalPaidExpenses
 
   const pctClamped = Math.min(budgetUsedPct, 100)
   const over = budgetUsedPct > 100
@@ -205,7 +213,11 @@ export default function ExpenseManager({ finance }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-6 lg:col-span-1">
-          <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4 h-fit">
+          <form
+            ref={formRef}
+            onSubmit={handleSubmit}
+            className={`glass-card p-6 space-y-4 h-fit scroll-mt-4 transition-shadow ${editingId ? 'ring-2 ring-expense/60' : ''}`}
+          >
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-lg">{editingId ? 'Editar Despesa' : 'Nova Despesa'}</h3>
               {editingId && (
@@ -333,6 +345,12 @@ export default function ExpenseManager({ finance }) {
               </select>
             </div>
           </div>
+          {filteredExpenses.length > 0 && (
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              {paidCount} de {filteredExpenses.length} pagas •{' '}
+              {unpaidTotal > 0 ? `falta pagar ${formatCurrency(unpaidTotal)}` : 'tudo pago neste mês'}
+            </p>
+          )}
           {visibleExpenses.length === 0 ? (
             <p className="text-sm text-slate-400 py-10 text-center">
               {filteredExpenses.length === 0
@@ -346,14 +364,29 @@ export default function ExpenseManager({ finance }) {
                   key={expense.id}
                   className="group flex items-center justify-between p-3 rounded-xl bg-white/40 dark:bg-white/5"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-expense/10 flex items-center justify-center">
-                      <ArrowUpCircle className="w-4 h-4 text-expense" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{expense.description}</p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={Boolean(expense.paid)}
+                      aria-label={`Pago? ${expense.description}`}
+                      title={expense.paid ? 'Paga — toque para desmarcar' : 'Marcar como paga'}
+                      onClick={() => toggleExpensePaid(expense.id)}
+                      className={`w-9 h-9 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
+                        expense.paid
+                          ? 'bg-income/10 text-income hover:bg-income/20'
+                          : 'bg-slate-200/60 dark:bg-white/10 text-slate-400 hover:text-income'
+                      }`}
+                    >
+                      {expense.paid ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                    </button>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{expense.description}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {expense.category} • {formatDateBR(expense.date)}
+                        {expense.category} • {formatDateBR(expense.date)} •{' '}
+                        <span className={expense.paid ? 'text-income' : 'text-amber-500'}>
+                          {expense.paid ? 'Paga' : 'Pendente'}
+                        </span>
                       </p>
                     </div>
                   </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDownCircle, PlusCircle, Save, Search, Settings2, X } from 'lucide-react'
 import RowActions from './RowActions'
 import FieldError from './FieldError'
@@ -37,6 +37,7 @@ export default function IncomeManager({ finance }) {
   const [form, setForm] = useState(() => emptyForm(selectedYear, selectedMonth, cats))
   const [errors, setErrors] = useState({})
   const [editingId, setEditingId] = useState(null)
+  const formRef = useRef(null)
   const [confirmingId, setConfirmingId] = useState(null)
   const [repeatMonthly, setRepeatMonthly] = useState(false)
   const [managingCategories, setManagingCategories] = useState(false)
@@ -98,6 +99,8 @@ export default function IncomeManager({ finance }) {
       category: income.category,
       date: income.date,
     })
+    // No celular o formulário fica acima da lista, fora da tela: leva o usuário até ele
+    formRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
   }
 
   function handleCancelEdit() {
@@ -134,7 +137,11 @@ export default function IncomeManager({ finance }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-6 lg:col-span-1">
-          <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4 h-fit">
+          <form
+            ref={formRef}
+            onSubmit={handleSubmit}
+            className={`glass-card p-6 space-y-4 h-fit scroll-mt-4 transition-shadow ${editingId ? 'ring-2 ring-income/60' : ''}`}
+          >
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-lg">{editingId ? 'Editar Receita' : 'Nova Receita'}</h3>
               {editingId && (

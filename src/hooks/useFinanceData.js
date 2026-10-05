@@ -165,6 +165,10 @@ export function useFinanceData() {
 
   const totalIncome = useMemo(() => sumAmounts(filteredIncomes), [filteredIncomes])
   const totalExpenses = useMemo(() => sumAmounts(filteredExpenses), [filteredExpenses])
+  const totalPaidExpenses = useMemo(
+    () => sumAmounts(filteredExpenses.filter((e) => e.paid)),
+    [filteredExpenses]
+  )
   const totalInvested = useMemo(() => goals.reduce((sum, g) => sum + g.current, 0), [goals])
   const totalInvestTarget = useMemo(() => goals.reduce((sum, g) => sum + g.target, 0), [goals])
 
@@ -270,6 +274,12 @@ export function useFinanceData() {
 
   function editExpense(id, updates) {
     setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)))
+  }
+
+  // "Pago?" vale por lançamento — como cada ocorrência de uma recorrência é um
+  // lançamento próprio, a marcação de um mês não afeta os outros.
+  function toggleExpensePaid(id) {
+    setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, paid: !e.paid } : e)))
   }
 
   function deleteExpense(id) {
@@ -449,6 +459,7 @@ export function useFinanceData() {
     selectedYear,
     totalIncome,
     totalExpenses,
+    totalPaidExpenses,
     totalInvested,
     totalInvestTarget,
     balance,
@@ -466,6 +477,7 @@ export function useFinanceData() {
     deleteIncome,
     addExpense,
     editExpense,
+    toggleExpensePaid,
     deleteExpense,
     deleteRecurring,
     addCategory,

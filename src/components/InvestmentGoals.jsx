@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { PlusCircle, Save, Sparkles, Target, X } from 'lucide-react'
 import RowActions from './RowActions'
 import FieldError from './FieldError'
@@ -30,6 +30,7 @@ export default function InvestmentGoals({ finance }) {
   const [form, setForm] = useState(emptyForm())
   const [errors, setErrors] = useState({})
   const [editingId, setEditingId] = useState(null)
+  const formRef = useRef(null)
   const [confirmingId, setConfirmingId] = useState(null)
   const [contributions, setContributions] = useState({})
   const [contributionErrors, setContributionErrors] = useState({})
@@ -63,6 +64,8 @@ export default function InvestmentGoals({ finance }) {
     setEditingId(goal.id)
     setErrors({})
     setForm({ name: goal.name, target: String(goal.target) })
+    // No celular o formulário fica acima da lista, fora da tela: leva o usuário até ele
+    formRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
   }
 
   function handleCancelEdit() {
@@ -106,7 +109,11 @@ export default function InvestmentGoals({ finance }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4 lg:col-span-1 h-fit">
+        <form
+          ref={formRef}
+          onSubmit={handleSubmit}
+          className={`glass-card p-6 space-y-4 lg:col-span-1 h-fit scroll-mt-4 transition-shadow ${editingId ? 'ring-2 ring-violet-500/60' : ''}`}
+        >
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-lg">{editingId ? 'Editar Meta' : 'Nova Meta'}</h3>
             {editingId && (
